@@ -41,3 +41,6 @@ configuration:
   healthcheck_interval:
     name: Health Check Interval (seconds)
     description: How often (in seconds) to perform the IPv6 health check and check for IP changes. Valid range is 60–3600. Default is 300.
+  notify_on_start:
+    name: Startup Notification
+    description: Send a persistent notification in Home Assistant when the tunnel is successfully established.

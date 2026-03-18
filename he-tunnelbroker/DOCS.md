@@ -1,110 +1,91 @@
-# HE Tunnelbroker (6in4) — Documentation
+# HE Tunnelbroker (6in4)
 
-## Overview
+## What does this add-on do?
 
-This add-on creates a 6in4 (SIT / Protocol 41) IPv6 tunnel to [Hurricane Electric's Tunnelbroker service](https://tunnelbroker.net/). It configures the tunnel directly on the Home Assistant OS host, assigns your IPv6 tunnel address, and sets up a default IPv6 route so that the entire host gains IPv6 connectivity.
+This add-on gives your Home Assistant host **IPv6 connectivity** by creating a tunnel to [Hurricane Electric's free Tunnelbroker service](https://tunnelbroker.net/). 
+
+If your internet provider doesn't offer native IPv6, this add-on encapsulates IPv6 traffic inside your existing IPv4 connection (a technique called "6in4" or "SIT tunneling") — giving you a fully routable, globally reachable IPv6 address.
+
+## Features
+
+- **Automatic IPv4 detection** — set `client_ipv4` to `"auto"` and the add-on detects your public IP at startup
+- **Dynamic IP support** — automatically updates your tunnel endpoint at HE when your IPv4 address changes
+- **Health monitoring** — periodically pings an IPv6 host and automatically restarts the tunnel if connectivity is lost
+- **Graceful shutdown** — cleanly removes the tunnel interface when the add-on stops
+- **Configurable DNS** — adds IPv6 DNS servers to the host resolver
+- **Zero dependencies** — runs entirely within the add-on container, no additional software needed on the host
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+1. A **free account** at [tunnelbroker.net](https://tunnelbroker.net/)
+2. A **configured tunnel** — create one on the HE website (choose a server close to you, e.g. Frankfurt for Germany)
+3. A **public IPv4 address** — this will NOT work behind CGNAT or DS-Lite
+4. **Protocol 41** allowed through your router/firewall — this is an IP protocol (not a TCP/UDP port)
+
+## Quick Start
+
+1. Go to your tunnel details page on [tunnelbroker.net](https://tunnelbroker.net/)
+2. Copy the values into the add-on configuration:
+   - **Server IPv4 Address** → `server_ipv4`
+   - **Server IPv6 Address** → `server_ipv6`  
+   - **Client IPv6 Address** → `client_ipv6`
+   - **Routed /64** → `routed_subnet`
+3. Set `client_ipv4` to `"auto"` (or enter your public IPv4 manually)
+4. If you have a dynamic IP, enable `update_enabled` and fill in your HE credentials
+5. Click **Start**
+6. Check the **Log** tab — you should see "Health check: IPv6 connectivity OK."
 
 ## Configuration Reference
 
-### `server_ipv4` (required)
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `server_ipv4` | string | _(required)_ | HE tunnel server IPv4 address |
+| `client_ipv4` | string | `"auto"` | Your public IPv4, or `"auto"` to detect |
+| `server_ipv6` | string | _(required)_ | HE tunnel server IPv6 endpoint |
+| `client_ipv6` | string | _(required)_ | Your tunnel IPv6 address |
+| `routed_subnet` | string | _(required)_ | Your routed /64 or /48 subnet |
+| `tunnel_mtu` | int | `1480` | Tunnel MTU (reduce if you see packet loss) |
+| `update_enabled` | bool | `false` | Auto-update IPv4 endpoint at HE |
+| `update_username` | string | | HE account username |
+| `update_key` | password | | Tunnel Update Key (not your password!) |
+| `update_tunnel_id` | string | | Numeric tunnel ID |
+| `update_interval` | int | `600` | Seconds between IP change checks |
+| `dns_servers` | list | Google DNS | IPv6 DNS servers to configure |
+| `healthcheck_host` | string | `2001:4860:4860::8888` | IPv6 host to ping for health checks |
+| `healthcheck_interval` | int | `300` | Seconds between health checks |
+| `notify_on_start` | bool | `false` | Send a HA notification when the tunnel comes up |
 
-**Type:** `str`
+## Troubleshooting
 
-The IPv4 address of the Hurricane Electric tunnel server. You can find this value on your tunnel's detail page as **Server IPv4 Address**.
+### The add-on starts but health check fails
 
-### `client_ipv4` (required)
+- **Protocol 41 blocked**: Your router or ISP may block IP Protocol 41. Check your router's firewall settings. Some routers have a specific "IPv6 tunnel" or "Protocol 41 passthrough" option.
+- **Wrong IPv4**: Make sure HE has your current public IPv4. Go to your tunnel details on tunnelbroker.net and click "Update" or enable `update_enabled`.
+- **MTU issues**: Try reducing `tunnel_mtu` to `1452` (accounts for PPPoE overhead) or even `1400`.
 
-**Type:** `str`
+### "modprobe sit failed"
 
-Your public-facing IPv4 address. Set this to `"auto"` to have the add-on detect it automatically at startup using `ipv4.icanhazip.com`. Use `"auto"` if you have a dynamic IP address.
+This is usually just a warning. The `sit` kernel module may already be built into the kernel. If tunnel creation also fails, your kernel may not support IPv6 tunneling — this is rare on standard HAOS installations.
 
-### `server_ipv6` (required)
+### "Failed to create SIT tunnel"
 
-**Type:** `str`
+The `NET_ADMIN` privilege may not be active. Reinstall the add-on and make sure you don't have any security restrictions overriding the add-on's privilege requests.
 
-The server-side IPv6 address of the tunnel (e.g. `2001:470:1f0a:xxxx::1`). Found as **Server IPv6 Address** in the HE tunnel details.
+### CGNAT / DS-Lite detection
 
-### `client_ipv6` (required)
+If `client_ipv4` is set to `"auto"` and the detected IP doesn't match your router's WAN IP, you're likely behind CGNAT. The tunnel will not work in this case. Contact your ISP to request a public IPv4 address, or check if they offer native IPv6.
 
-**Type:** `str`
+## Security Notice
 
-Your assigned tunnel IPv6 address (e.g. `2001:470:1f0a:xxxx::2`). Found as **Client IPv6 Address** in the HE tunnel details.
-
-### `routed_subnet` (required)
-
-**Type:** `str`
-
-The routed IPv6 subnet assigned by HE (e.g. `2001:470:1f0b:xxxx::/64`). This can be used to assign IPv6 addresses to other devices on your network.
-
-### `tunnel_mtu`
-
-**Type:** `int`  
-**Default:** `1480`
-
-The MTU (Maximum Transmission Unit) for the tunnel interface. The standard is 1480 (1500 bytes minus the 20-byte IPv4 encapsulation header). If you experience packet loss or connection issues with large payloads, try reducing this value to `1452` or lower.
-
-### `update_enabled`
-
-**Type:** `bool`  
-**Default:** `false`
-
-Enables automatic endpoint updates via the HE dynamic DNS API. Set to `true` if your public IPv4 address changes (dynamic IP). When enabled, the add-on periodically checks your current public IP and updates the HE tunnel endpoint if it has changed.
-
-### `update_username`
-
-**Type:** `str`
-
-Your Hurricane Electric account username.
-
-### `update_key`
-
-**Type:** `password`
-
-The **Tunnel Update Key** from your HE tunnel's **Advanced** section. This is a separate key from your account password and is safe to use without exposing your login credentials.
-
-### `update_tunnel_id`
-
-**Type:** `str`
-
-The numeric ID of your tunnel. Visible in the URL and header of your tunnel's detail page on tunnelbroker.net.
-
-### `update_interval`
-
-**Type:** `int`  
-**Default:** `600`
-
-How often (in seconds) the add-on checks for IP address changes and updates the HE endpoint. The minimum recommended value is `300` (5 minutes) to avoid triggering HE's rate limits.
-
-### `dns_servers`
-
-**Type:** `list(str)`  
-**Default:** `["2001:4860:4860::8888", "2001:4860:4860::8844"]`
-
-IPv6 DNS servers to add to the host's `/etc/resolv.conf`. Defaults to Google's public IPv6 DNS resolvers.
-
-### `healthcheck_host`
-
-**Type:** `str`  
-**Default:** `"2001:4860:4860::8888"`
-
-The IPv6 address used for periodic connectivity health checks. The add-on pings this host every `healthcheck_interval` seconds. If the ping fails the tunnel is automatically restarted. Change this to any reliably reachable IPv6 host.
-
-### `healthcheck_interval`
-
-**Type:** `int` (60–3600)  
-**Default:** `300`
-
-How often (in seconds) the add-on performs the IPv6 connectivity health check and, if `update_enabled` is `true`, checks for IP address changes. Valid range: 60–3600 seconds.
+Once the tunnel is active, your Home Assistant host has a **globally routable IPv6 address**. Unlike IPv4 behind NAT, IPv6 traffic is **not** address-translated — devices are directly reachable from the internet. Make sure you have appropriate firewall rules in place.
 
 ## How It Works
 
-1. At startup the add-on reads the configuration via `bashio`.
-2. Required fields (`server_ipv4`, `server_ipv6`, `client_ipv6`) are validated — the add-on exits with a fatal error if they are empty or still contain placeholder values.
-3. If `client_ipv4` is `"auto"`, it fetches the current public IPv4 from `ipv4.icanhazip.com`.
-4. It attempts to load the `sit` kernel module (ignores failure — it may already be loaded).
-5. Any previously existing `he-ipv6` tunnel is removed to ensure a clean state.
-6. The SIT tunnel is created with `ip tunnel add`, brought up, and configured with the correct IPv6 address and default route.
-7. Optional IPv6 DNS servers are appended to `/etc/resolv.conf`.
-8. The add-on enters its main loop. Every `healthcheck_interval` seconds it pings the configured health-check host. If the ping fails, the tunnel is automatically restarted. If it still fails after the restart an error is logged.
-9. If `update_enabled` is `true`, the add-on also checks for public IP changes on every loop iteration and updates the HE endpoint accordingly.
-10. On SIGTERM/SIGINT the tunnel is gracefully removed.
+1. The add-on validates configuration and detects the public IPv4 (if set to auto)
+2. It loads the `sit` kernel module and creates a SIT tunnel to the HE server
+3. The tunnel interface receives your IPv6 address and a default IPv6 route is set
+4. A health check loop monitors connectivity and auto-restarts the tunnel if it goes down
+5. If dynamic IP updates are enabled, the add-on watches for IPv4 changes and updates both HE and the local tunnel endpoint
+6. On shutdown, the tunnel is cleanly removed

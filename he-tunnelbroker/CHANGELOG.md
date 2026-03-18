@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0] - 2026-03-18
+
+### Added
+- Add-on icon and logo
+- Startup retry mechanism (3 attempts before entering recovery loop)
+- Tunnel traffic statistics logging on each health check
+- Optional Home Assistant notification on successful tunnel start
+- Improved DOCS.md with quick start guide and troubleshooting
+
+### Changed
+- Improved documentation with configuration table and troubleshooting section
+
 ## [1.0.0] - 2026-03-18
 
 ### Added
