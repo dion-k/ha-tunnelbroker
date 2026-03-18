@@ -32,6 +32,7 @@ UPDATE_TUNNEL_ID=$(bashio::config 'update_tunnel_id')
 UPDATE_INTERVAL=$(bashio::config 'update_interval')
 HEALTHCHECK_HOST=$(bashio::config 'healthcheck_host')
 HEALTHCHECK_INTERVAL=$(bashio::config 'healthcheck_interval')
+NOTIFY_ON_START=$(bashio::config 'notify_on_start')
 
 bashio::log.info "Starting HE Tunnelbroker (6in4) add-on..."
 
@@ -103,6 +104,23 @@ setup_tunnel() {
     bashio::log.info "Tunnel '${TUNNEL_NAME}' is up (local=${local_ipv4}, remote=${SERVER_IPV4}, mtu=${TUNNEL_MTU})."
 }
 
+# ── Helper: test IPv6 reachability ────────────
+ipv6_reachable() {
+    ping6 -c 1 -W 5 "${HEALTHCHECK_HOST}" >/dev/null 2>&1
+}
+
+# ── Helper: log tunnel traffic statistics ─────
+log_tunnel_stats() {
+    local stats
+    stats=$(ip -s link show "${TUNNEL_NAME}" 2>/dev/null) || return
+    local rx_bytes tx_bytes
+    rx_bytes=$(echo "${stats}" | awk '/RX:/{getline; print $1}')
+    tx_bytes=$(echo "${stats}" | awk '/TX:/{getline; print $1}')
+    if [ -n "${rx_bytes}" ] && [ -n "${tx_bytes}" ]; then
+        bashio::log.info "Tunnel stats: RX=${rx_bytes} bytes, TX=${tx_bytes} bytes"
+    fi
+}
+
 # ── Build the tunnel ───────────────────────────
 bashio::log.info "Creating tunnel: ${TUNNEL_NAME}"
 bashio::log.info "  Server IPv4  : ${SERVER_IPV4}"
@@ -112,9 +130,29 @@ bashio::log.info "  Client IPv6  : ${CLIENT_IPV6}"
 bashio::log.info "  Routed subnet: ${ROUTED_SUBNET}"
 bashio::log.info "  MTU          : ${TUNNEL_MTU}"
 
-if ! setup_tunnel "${CLIENT_IPV4}"; then
-    exit 1
-fi
+# ── Startup tunnel with retry ──────────────────
+MAX_RETRIES=3
+RETRY_DELAY=10
+TUNNEL_UP=false
+for i in $(seq 1 ${MAX_RETRIES}); do
+    if setup_tunnel "${CLIENT_IPV4}"; then
+        if ipv6_reachable; then
+            bashio::log.info "Tunnel established and IPv6 reachable on attempt ${i}."
+            TUNNEL_UP=true
+            break
+        else
+            bashio::log.warning "Tunnel up but IPv6 not reachable (attempt ${i}/${MAX_RETRIES}). Retrying in ${RETRY_DELAY}s..."
+        fi
+    else
+        bashio::log.warning "Tunnel creation failed (attempt ${i}/${MAX_RETRIES}). Retrying in ${RETRY_DELAY}s..."
+    fi
+
+    if [ "${i}" -eq "${MAX_RETRIES}" ]; then
+        bashio::log.error "Failed to establish tunnel after ${MAX_RETRIES} attempts. Continuing in main loop for recovery..."
+    else
+        sleep "${RETRY_DELAY}"
+    fi
+done
 
 # ── Configure DNS ──────────────────────────────
 if bashio::config.has_value 'dns_servers'; then
@@ -125,6 +163,16 @@ if bashio::config.has_value 'dns_servers'; then
             bashio::log.info "Added DNS server: ${dns}"
         fi
     done
+fi
+
+# ── Optional startup notification ─────────────
+if bashio::var.true "${NOTIFY_ON_START}" && [ "${TUNNEL_UP}" = "true" ]; then
+    curl -s -X POST \
+        -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"title\": \"HE Tunnelbroker\", \"message\": \"IPv6 tunnel is up. Client IPv6: ${CLIENT_IPV6}\"}" \
+        http://supervisor/core/api/services/persistent_notification/create \
+        || bashio::log.warning "Could not send startup notification."
 fi
 
 # ── Helper: update HE endpoint ─────────────────
@@ -163,15 +211,11 @@ update_he_endpoint() {
     fi
 }
 
-# ── Helper: test IPv6 reachability ────────────
-ipv6_reachable() {
-    ping6 -c 1 -W 5 "${HEALTHCHECK_HOST}" >/dev/null 2>&1
-}
-
 # ── Helper: health check with auto-restart ─────
 health_check() {
     if ipv6_reachable; then
         bashio::log.info "Health check: IPv6 connectivity OK."
+        log_tunnel_stats
     else
         bashio::log.warning "Health check failed — attempting tunnel restart..."
         if setup_tunnel "${CLIENT_IPV4}"; then
