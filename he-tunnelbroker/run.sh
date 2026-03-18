@@ -1,4 +1,4 @@
-#!/usr/bin/env bashio
+#!/usr/bin/with-bashio
 
 # ──────────────────────────────────────────────
 #  HE Tunnelbroker (6in4) – run.sh
@@ -30,8 +30,24 @@ UPDATE_USERNAME=$(bashio::config 'update_username')
 UPDATE_KEY=$(bashio::config 'update_key')
 UPDATE_TUNNEL_ID=$(bashio::config 'update_tunnel_id')
 UPDATE_INTERVAL=$(bashio::config 'update_interval')
+HEALTHCHECK_HOST=$(bashio::config 'healthcheck_host')
+HEALTHCHECK_INTERVAL=$(bashio::config 'healthcheck_interval')
 
 bashio::log.info "Starting HE Tunnelbroker (6in4) add-on..."
+
+# ── Validate required configuration ───────────
+if [[ -z "${SERVER_IPV4}" || "${SERVER_IPV4}" == "0.0.0.0" ]]; then
+    bashio::log.fatal "server_ipv4 is not configured. Enter your HE tunnel server IPv4."
+    bashio::exit.nok
+fi
+if [[ -z "${SERVER_IPV6}" || "${SERVER_IPV6}" == *"xxxx"* ]]; then
+    bashio::log.fatal "server_ipv6 still contains placeholder values. Enter your actual HE tunnel IPv6 addresses."
+    bashio::exit.nok
+fi
+if [[ -z "${CLIENT_IPV6}" || "${CLIENT_IPV6}" == *"xxxx"* ]]; then
+    bashio::log.fatal "client_ipv6 still contains placeholder values."
+    bashio::exit.nok
+fi
 
 # ── Auto-detect public IPv4 ────────────────────
 if [ "${CLIENT_IPV4}" = "auto" ]; then
@@ -147,33 +163,40 @@ update_he_endpoint() {
     fi
 }
 
-# ── Helper: health check ───────────────────────
+# ── Helper: test IPv6 reachability ────────────
+ipv6_reachable() {
+    ping6 -c 1 -W 5 "${HEALTHCHECK_HOST}" >/dev/null 2>&1
+}
+
+# ── Helper: health check with auto-restart ─────
 health_check() {
-    if ping6 -c 1 -W 5 2001:4860:4860::8888 >/dev/null 2>&1; then
+    if ipv6_reachable; then
         bashio::log.info "Health check: IPv6 connectivity OK."
     else
-        bashio::log.warning "Health check: IPv6 ping to 2001:4860:4860::8888 failed. Tunnel may be degraded."
+        bashio::log.warning "Health check failed — attempting tunnel restart..."
+        if setup_tunnel "${CLIENT_IPV4}"; then
+            if ipv6_reachable; then
+                bashio::log.info "Tunnel restored successfully."
+            else
+                bashio::log.error "Tunnel still unreachable after restart."
+            fi
+        else
+            bashio::log.error "Failed to rebuild tunnel."
+        fi
     fi
 }
 
 # ── Main keep-alive loop ───────────────────────
-bashio::log.info "Entering main loop (update_interval=${UPDATE_INTERVAL}s)..."
-
-HEALTH_CHECK_INTERVAL=300  # run health check at least every 5 minutes
-LAST_HEALTH_CHECK=$(date +%s)
+bashio::log.info "Entering main loop (healthcheck_interval=${HEALTHCHECK_INTERVAL}s)..."
 health_check
 
 while true; do
-    sleep "${UPDATE_INTERVAL}" &
+    sleep "${HEALTHCHECK_INTERVAL}" &
     wait $!
+
+    health_check
 
     if bashio::var.true "${UPDATE_ENABLED}"; then
         update_he_endpoint
-    fi
-
-    NOW=$(date +%s)
-    if [ $((NOW - LAST_HEALTH_CHECK)) -ge "${HEALTH_CHECK_INTERVAL}" ]; then
-        health_check
-        LAST_HEALTH_CHECK="${NOW}"
     fi
 done

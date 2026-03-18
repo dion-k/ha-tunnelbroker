@@ -2,7 +2,6 @@ name: "HE Tunnelbroker (6in4)"
 description: "Establishes a 6in4 IPv6 tunnel to Hurricane Electric's Tunnelbroker service, providing IPv6 connectivity to your Home Assistant host."
 version: "1.0.0"
 slug: "he-tunnelbroker"
-init: false
 arch:
   - armhf
   - armv7
@@ -12,16 +11,17 @@ arch:
 host_network: true
 privileged:
   - NET_ADMIN
+  - SYS_MODULE
 startup: system
 boot: auto
 map: []
 url: "https://github.com/dion-k/ha-tunnelbroker"
 options:
-  server_ipv4: "0.0.0.0"
+  server_ipv4: ""
   client_ipv4: "auto"
-  server_ipv6: "2001:470:1f0a:xxxx::1"
-  client_ipv6: "2001:470:1f0a:xxxx::2"
-  routed_subnet: "2001:470:1f0b:xxxx::/64"
+  server_ipv6: ""
+  client_ipv6: ""
+  routed_subnet: ""
   tunnel_mtu: 1480
   update_enabled: false
   update_username: ""
@@ -31,17 +31,21 @@ options:
   dns_servers:
     - "2001:4860:4860::8888"
     - "2001:4860:4860::8844"
+  healthcheck_host: "2001:4860:4860::8888"
+  healthcheck_interval: 300
 schema:
   server_ipv4: str
   client_ipv4: str
   server_ipv6: str
   client_ipv6: str
   routed_subnet: str
-  tunnel_mtu: int
+  tunnel_mtu: "int(1280,1480)"
   update_enabled: bool
   update_username: str
   update_key: password
   update_tunnel_id: str
-  update_interval: int
+  update_interval: "int(60,3600)"
   dns_servers:
     - str
+  healthcheck_host: str
+  healthcheck_interval: "int(60,3600)"

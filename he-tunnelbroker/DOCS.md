@@ -82,14 +82,29 @@ How often (in seconds) the add-on checks for IP address changes and updates the 
 
 IPv6 DNS servers to add to the host's `/etc/resolv.conf`. Defaults to Google's public IPv6 DNS resolvers.
 
+### `healthcheck_host`
+
+**Type:** `str`  
+**Default:** `"2001:4860:4860::8888"`
+
+The IPv6 address used for periodic connectivity health checks. The add-on pings this host every `healthcheck_interval` seconds. If the ping fails the tunnel is automatically restarted. Change this to any reliably reachable IPv6 host.
+
+### `healthcheck_interval`
+
+**Type:** `int` (60–3600)  
+**Default:** `300`
+
+How often (in seconds) the add-on performs the IPv6 connectivity health check and, if `update_enabled` is `true`, checks for IP address changes. Valid range: 60–3600 seconds.
+
 ## How It Works
 
 1. At startup the add-on reads the configuration via `bashio`.
-2. If `client_ipv4` is `"auto"`, it fetches the current public IPv4 from `ipv4.icanhazip.com`.
-3. It attempts to load the `sit` kernel module (ignores failure — it may already be loaded).
-4. Any previously existing `he-ipv6` tunnel is removed to ensure a clean state.
-5. The SIT tunnel is created with `ip tunnel add`, brought up, and configured with the correct IPv6 address and default route.
-6. Optional IPv6 DNS servers are appended to `/etc/resolv.conf`.
-7. The add-on enters its main loop. If `update_enabled` is `true`, it periodically checks for IP changes, updates HE via their API, and re-configures the local tunnel if needed.
-8. A health check runs every 5 minutes by pinging `2001:4860:4860::8888`.
-9. On SIGTERM/SIGINT the tunnel is gracefully removed.
+2. Required fields (`server_ipv4`, `server_ipv6`, `client_ipv6`) are validated — the add-on exits with a fatal error if they are empty or still contain placeholder values.
+3. If `client_ipv4` is `"auto"`, it fetches the current public IPv4 from `ipv4.icanhazip.com`.
+4. It attempts to load the `sit` kernel module (ignores failure — it may already be loaded).
+5. Any previously existing `he-ipv6` tunnel is removed to ensure a clean state.
+6. The SIT tunnel is created with `ip tunnel add`, brought up, and configured with the correct IPv6 address and default route.
+7. Optional IPv6 DNS servers are appended to `/etc/resolv.conf`.
+8. The add-on enters its main loop. Every `healthcheck_interval` seconds it pings the configured health-check host. If the ping fails, the tunnel is automatically restarted. If it still fails after the restart an error is logged.
+9. If `update_enabled` is `true`, the add-on also checks for public IP changes on every loop iteration and updates the HE endpoint accordingly.
+10. On SIGTERM/SIGINT the tunnel is gracefully removed.

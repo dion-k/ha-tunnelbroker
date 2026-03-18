@@ -6,6 +6,7 @@ RUN apk add --no-cache \
     iproute2 \
     curl \
     bash \
+    kmod \
     iputils
 
 # Copy the run script

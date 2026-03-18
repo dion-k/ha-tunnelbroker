@@ -35,3 +35,9 @@ configuration:
   dns_servers:
     name: IPv6 DNS Servers
     description: IPv6 DNS servers to add to the host resolver configuration. Defaults to Google public IPv6 DNS.
+  healthcheck_host:
+    name: Health Check Host
+    description: IPv6 address used for periodic connectivity health checks. The tunnel is automatically restarted if pings to this host fail.
+  healthcheck_interval:
+    name: Health Check Interval (seconds)
+    description: How often (in seconds) to perform the IPv6 health check and check for IP changes. Valid range is 60–3600. Default is 300.
