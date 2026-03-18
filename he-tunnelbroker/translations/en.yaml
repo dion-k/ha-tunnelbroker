@@ -1,0 +1,43 @@
+configuration:
+  server_ipv4:
+    name: Server IPv4 Address
+    description: The IPv4 address of the Hurricane Electric tunnel server endpoint. Found on your HE tunnel details page as "Server IPv4 Address".
+  client_ipv4:
+    name: Client IPv4 Address
+    description: Your public IPv4 address. Set to "auto" to detect it automatically at startup. Use "auto" if you have a dynamic IP.
+  server_ipv6:
+    name: Server IPv6 Address
+    description: The server-side IPv6 address of the tunnel (e.g. 2001:470:1f0a:xxxx::1). Found as "Server IPv6 Address" in the HE tunnel details.
+  client_ipv6:
+    name: Client IPv6 Address
+    description: Your assigned tunnel IPv6 address (e.g. 2001:470:1f0a:xxxx::2). Found as "Client IPv6 Address" in the HE tunnel details.
+  routed_subnet:
+    name: Routed Subnet
+    description: The routed IPv6 subnet assigned by HE (e.g. 2001:470:1f0b:xxxx::/64). Can be used to assign IPv6 to devices on your network.
+  tunnel_mtu:
+    name: Tunnel MTU
+    description: MTU for the tunnel interface. Default is 1480. Reduce if you experience packet loss or connection issues with large payloads.
+  update_enabled:
+    name: Enable Endpoint Updates
+    description: Enable automatic IPv4 endpoint updates via the HE API. Set to true if your public IPv4 changes (dynamic IP).
+  update_username:
+    name: HE Username
+    description: Your Hurricane Electric account username, used for tunnel endpoint updates.
+  update_key:
+    name: Tunnel Update Key
+    description: The Tunnel Update Key from the Advanced section of your HE tunnel. This is separate from your account password.
+  update_tunnel_id:
+    name: Tunnel ID
+    description: The numeric ID of your HE tunnel, visible in the tunnel details page URL and header.
+  update_interval:
+    name: Update Interval (seconds)
+    description: How often (in seconds) to check for IP changes and update the HE endpoint. Default is 600 (10 minutes).
+  dns_servers:
+    name: IPv6 DNS Servers
+    description: IPv6 DNS servers to add to the host resolver configuration. Defaults to Google public IPv6 DNS.
+  healthcheck_host:
+    name: Health Check Host
+    description: IPv6 address used for periodic connectivity health checks. The tunnel is automatically restarted if pings to this host fail.
+  healthcheck_interval:
+    name: Health Check Interval (seconds)
+    description: How often (in seconds) to perform the IPv6 health check and check for IP changes. Valid range is 60–3600. Default is 300.
