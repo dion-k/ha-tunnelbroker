@@ -14,6 +14,7 @@ privileged:
   - SYS_MODULE
 startup: system
 boot: auto
+init: false
 map: []
 url: "https://github.com/dion-k/ha-tunnelbroker"
 options:
