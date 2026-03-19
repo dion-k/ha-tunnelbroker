@@ -1,4 +1,5 @@
 #!/usr/bin/with-bashio
+# shellcheck shell=bash
 
 # ──────────────────────────────────────────────
 #  HE Tunnelbroker (6in4) – run.sh
