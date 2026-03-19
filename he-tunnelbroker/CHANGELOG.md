@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0] - 2026-03-19
+
+### Fixed
+- Fixed container startup failure (s6-overlay compatibility issue)
+- Container now runs without s6-overlay for maximum compatibility
+
 ## [1.1.2] - 2026-03-19
 
 ### Fixed
