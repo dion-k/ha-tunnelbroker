@@ -1,4 +1,4 @@
-#!/usr/bin/with-bashio
+#!/usr/bin/env bashio
 # shellcheck shell=bash
 
 # ──────────────────────────────────────────────

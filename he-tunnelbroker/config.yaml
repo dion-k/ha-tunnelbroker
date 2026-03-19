@@ -1,6 +1,6 @@
 name: "HE Tunnelbroker (6in4)"
 description: "Establishes a 6in4 IPv6 tunnel to Hurricane Electric's Tunnelbroker service, providing IPv6 connectivity to your Home Assistant host."
-version: "1.1.2"
+version: "1.2.0"
 slug: "he-tunnelbroker"
 arch:
   - armhf
@@ -12,6 +12,7 @@ host_network: true
 privileged:
   - NET_ADMIN
   - SYS_MODULE
+init: false
 startup: system
 boot: auto
 map: []
