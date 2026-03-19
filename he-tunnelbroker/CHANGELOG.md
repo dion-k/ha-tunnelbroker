@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2] - 2026-03-19
+
+### Fixed
+- s6-overlay service integration: moved run script to `/etc/services.d/he-tunnelbroker/run` so s6-overlay can start the service correctly
+- Removed `init: false` from `config.yaml` to allow s6-overlay to manage service lifecycle
+- Removed `CMD` from Dockerfile in favour of s6-overlay service directory
+- Added `finish.sh` for clean tunnel teardown on service stop
+
 ## [1.1.0] - 2026-03-18
 
 ### Added
